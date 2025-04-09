@@ -1,7 +1,13 @@
 <template>
-  <div class="relative pt-6">
+  <div class="relative pt-10 pb-4">
+    <!-- X-Axis Label -->
+    <div class="absolute top-0 left-8 right-0 text-center text-sm font-medium text-gray-600 mb-1"
+         :style="{ width: `calc(100% - ${axisOffset}px)` }">
+      {{ timeUnitName }} of the Year
+    </div>
+
     <!-- X-Axis Markers -->
-    <div class="absolute top-0 left-8 right-0 flex text-xs text-gray-500"
+    <div class="absolute top-6 left-8 right-0 flex text-xs text-gray-500"
          :style="{ width: `calc(100% - ${axisOffset}px)` }">
       <span v-for="marker in xAxisMarkers" :key="`marker-${marker}`" class="absolute text-center"
             :style="{ left: `calc(${(marker - 1) / itemsPerYear * 100}% + ${markerOffsetX}px)` }">
@@ -10,7 +16,12 @@
     </div>
 
     <!-- Main Content Area (Labels + Grid) -->
-    <div class="flex items-start">
+    <div class="flex items-start mt-2">
+
+      <!-- Y-Axis Label Container -->
+      <div class="flex items-center justify-center mr-1" style="writing-mode: vertical-rl; transform: rotate(180deg);">
+        <span class="text-sm font-medium text-gray-600 whitespace-nowrap">Age</span>
+      </div>
 
       <!-- Y-Axis Labels (Age) -->
       <div class="flex flex-col mr-2 space-y-[0.126rem] pt-1">
