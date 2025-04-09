@@ -26,10 +26,10 @@ const handleDateUpdate = (newDate: Date) => {
           <input type="checkbox" id="showRetirement" v-model="showRetirement" class="mr-1" />
           <label for="showRetirement" class="text-sm text-gray-700">Show Retirement</label>
         </div>
-        <div v-if="showRetirement">
+        <!-- <div v-if="showRetirement" class="min-w-[180px]">
           <label for="retirementAge" class="text-sm text-gray-700 mr-1">Retirement Age:</label>
           <input type="number" id="retirementAge" v-model.number="retirementAge" min="0" max="90" class="p-1 border rounded w-16 text-sm"/>
-        </div>
+        </div> -->
         <div>
           <label for="runwayYears" class="text-sm text-gray-700 mr-1">Savings Runway (Years):</label>
           <input type="number" id="runwayYears" v-model.number="runwayYears" min="0" class="p-1 border rounded w-16 text-sm"/>
