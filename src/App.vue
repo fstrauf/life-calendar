@@ -55,7 +55,7 @@ const handleDateUpdate = (newDate: Date) => {
           <label for="showRetirement" class="text-sm text-gray-700">Show Retirement</label>
         </div>
         <div>
-          <label for="runwayYears" class="text-sm text-gray-700 mr-1">Savings Runway (Years):</label>
+          <label for="runwayYears" class="text-sm text-gray-700 mr-1">Runway (Years):</label>
           <input type="number" id="runwayYears" v-model.number="runwayYears" min="0" class="p-1 border rounded w-16 text-sm"/>
         </div>
          <div>
@@ -85,7 +85,7 @@ const handleDateUpdate = (newDate: Date) => {
     <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-6 text-xs text-gray-700">
       <div class="flex items-center"><span class="w-3 h-3 bg-blue-800 inline-block mr-1 rounded-sm border border-gray-400"></span> Elapsed</div>
       <div class="flex items-center"><span class="w-3 h-3 bg-green-400 inline-block mr-1 rounded-sm border border-gray-400"></span> Time Off / Retirement</div>
-      <div class="flex items-center"><span class="w-3 h-3 bg-blue-400 inline-block mr-1 rounded-sm border border-gray-400"></span> Savings Runway</div>
+      <div class="flex items-center"><span class="w-3 h-3 bg-blue-400 inline-block mr-1 rounded-sm border border-gray-400"></span>Runway</div>
       <div class="flex items-center"><span class="w-3 h-3 bg-white inline-block mr-1 rounded-sm border border-gray-400"></span> Future</div>
     </div>
 
