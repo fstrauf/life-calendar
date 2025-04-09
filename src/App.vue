@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import LifeGrid from './components/LifeGrid.vue';
 import DateInput from './components/DateInput.vue';
+import type { DisplayMode } from './types';
 
 const dateOfBirth = ref<Date | null>(null);
 const showRetirement = ref(false);
@@ -9,6 +10,33 @@ const retirementAge = ref<number>(67);
 const runwayYears = ref<number | null>(null);
 const timeOffStartAge = ref<number | null>(null);
 const timeOffDurationYears = ref<number | null>(null);
+
+// --- Screen Size Detection ---
+const isMobile = ref(false);
+let mediaQueryList: MediaQueryList | null = null;
+
+const checkScreenSize = () => {
+  if (mediaQueryList) {
+    isMobile.value = mediaQueryList.matches;
+    console.log('Screen size check, isMobile:', isMobile.value);
+  }
+};
+
+onMounted(() => {
+  // Using 768px (Tailwind's 'md' breakpoint) might be better for switching between week/month view
+  mediaQueryList = window.matchMedia('(max-width: 767px)');
+  checkScreenSize(); // Initial check
+  mediaQueryList.addEventListener('change', checkScreenSize);
+});
+
+onUnmounted(() => {
+  mediaQueryList?.removeEventListener('change', checkScreenSize);
+});
+
+const displayMode = computed<DisplayMode>(() => {
+  return isMobile.value ? 'months' : 'weeks';
+});
+// --- End Screen Size Detection ---
 
 const handleDateUpdate = (newDate: Date) => {
   console.log('App.vue: Date updated', newDate);
@@ -18,7 +46,7 @@ const handleDateUpdate = (newDate: Date) => {
 
 <template>
   <div id="app" class="flex flex-col items-center p-6 sm:p-10 min-h-screen bg-gray-50">
-    <h1 class="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">Your Life in Weeks</h1>
+    <h1 class="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">Your Life in {{ displayMode === 'weeks' ? 'Weeks' : 'Months' }}</h1>
     <div class="flex flex-col items-center w-full mb-6 space-y-4">
       <DateInput @update:date="handleDateUpdate" />
       <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
@@ -26,10 +54,6 @@ const handleDateUpdate = (newDate: Date) => {
           <input type="checkbox" id="showRetirement" v-model="showRetirement" class="mr-1" />
           <label for="showRetirement" class="text-sm text-gray-700">Show Retirement</label>
         </div>
-        <!-- <div v-if="showRetirement" class="min-w-[180px]">
-          <label for="retirementAge" class="text-sm text-gray-700 mr-1">Retirement Age:</label>
-          <input type="number" id="retirementAge" v-model.number="retirementAge" min="0" max="90" class="p-1 border rounded w-16 text-sm"/>
-        </div> -->
         <div>
           <label for="runwayYears" class="text-sm text-gray-700 mr-1">Savings Runway (Years):</label>
           <input type="number" id="runwayYears" v-model.number="runwayYears" min="0" class="p-1 border rounded w-16 text-sm"/>
@@ -53,6 +77,7 @@ const handleDateUpdate = (newDate: Date) => {
         :runway-years="runwayYears"
         :time-off-start-age="timeOffStartAge"
         :time-off-duration-years="timeOffDurationYears"
+        :display-mode="displayMode"
       />
     </div>
 

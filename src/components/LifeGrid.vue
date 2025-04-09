@@ -1,11 +1,11 @@
 <template>
   <div class="relative pt-6">
-    <!-- X-Axis Markers (Week) -->
+    <!-- X-Axis Markers -->
     <div class="absolute top-0 left-8 right-0 flex text-xs text-gray-500"
          :style="{ width: `calc(100% - ${axisOffset}px)` }">
-      <span v-for="week in weekMarkers" :key="`week-${week}`" class="absolute text-center"
-            :style="{ left: `calc(${(week - 1) / weeksPerYear * 100}% + ${markerOffsetX}px)` }">
-        {{ week }}
+      <span v-for="marker in xAxisMarkers" :key="`marker-${marker}`" class="absolute text-center"
+            :style="{ left: `calc(${(marker - 1) / itemsPerYear * 100}% + ${markerOffsetX}px)` }">
+        {{ marker }}
       </span>
     </div>
 
@@ -21,13 +21,13 @@
       </div>
 
       <!-- Grid -->
-      <div class="grid grid-cols-52 gap-0.5 border border-gray-300 rounded bg-gray-200 p-1 flex-grow">
+      <div class="grid gap-0.5 border border-gray-300 rounded bg-gray-200 p-1 flex-grow" :class="gridColsClass">
         <div
-          v-for="weekIndex in totalWeeks"
-          :key="weekIndex"
+          v-for="itemIndex in totalItems"
+          :key="itemIndex"
           class="w-3 h-3 border border-gray-300 rounded-sm"
-          :class="getWeekClass(weekIndex)"
-          :title="`Year ${Math.floor((weekIndex - 1) / weeksPerYear)}, Week ${((weekIndex - 1) % weeksPerYear) + 1}`"
+          :class="getItemClass(itemIndex)"
+          :title="getItemTitle(itemIndex)"
         >
         </div>
       </div>
@@ -38,6 +38,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import type { PropType } from 'vue';
+import type { DisplayMode } from '../types';
 
 // --- State Constants ---
 const STATE_FUTURE = 'future';
@@ -54,12 +56,21 @@ const props = defineProps<{
   runwayYears: number | null;
   timeOffStartAge: number | null;
   timeOffDurationYears: number | null;
+  displayMode: DisplayMode;
 }>();
 
 // --- Constants ---
 const years = 90;
-const weeksPerYear = 52;
-const totalWeeks = years * weeksPerYear;
+
+// --- Display Mode Dependent Calculations ---
+const itemsPerYear = computed(() => props.displayMode === 'weeks' ? 52 : 12);
+const totalItems = computed(() => years * itemsPerYear.value);
+const timeUnitName = computed(() => props.displayMode === 'weeks' ? 'Week' : 'Month');
+
+// --- Grid Styling ---
+const gridColsClass = computed(() => {
+  return props.displayMode === 'weeks' ? 'grid-cols-52' : 'grid-cols-12';
+});
 
 // --- Calculated Values for Labels ---
 const yearLabels = computed(() => Array.from({ length: years }, (_, i) => i));
@@ -68,162 +79,207 @@ const yearLabels = computed(() => Array.from({ length: years }, (_, i) => i));
 const axisOffset = 24;
 const markerOffsetX = 4;
 
-// --- Base Calculations ---
+// --- Base Calculations (using items) ---
 
-const elapsedWeeks = computed(() => {
+const elapsedItems = computed(() => {
   if (!props.dateOfBirth) return 0;
   const now = new Date();
   const dob = new Date(props.dateOfBirth);
   const diffTime = now.getTime() - dob.getTime();
   if (diffTime < 0) return 0;
-  const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
-  return Math.min(diffWeeks, totalWeeks);
+
+  let diffItems: number;
+  if (props.displayMode === 'weeks') {
+    diffItems = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
+  } else { // months
+    // Approximate month calculation
+    const yearsDiff = now.getFullYear() - dob.getFullYear();
+    const monthsDiff = now.getMonth() - dob.getMonth();
+    diffItems = yearsDiff * 12 + monthsDiff;
+    // Adjust if the current day is before the birth day in the current month
+    if (now.getDate() < dob.getDate()) {
+       diffItems--;
+    }
+     diffItems = Math.max(0, diffItems); // Ensure non-negative
+  }
+
+  return Math.min(diffItems, totalItems.value);
 });
 
-const timeOffStartWeek = computed(() => {
+const timeOffStartItem = computed(() => {
   if (props.timeOffStartAge === null || props.timeOffStartAge < 0) return -1;
-  return props.timeOffStartAge * weeksPerYear + 1;
+  // Ensure calculation aligns with how elapsedItems is calculated for months
+  if (props.displayMode === 'months') {
+      // Start of the month corresponding to the start age
+      return props.timeOffStartAge * itemsPerYear.value;
+  }
+  // Weeks calculation (original + 1 indexed assumption seems off compared to elapsed)
+  // Let's make it 0-indexed for consistency with elapsed calculation
+  return props.timeOffStartAge * itemsPerYear.value;
+
 });
 
-const timeOffDurationWeeks = computed(() => {
+const timeOffDurationItems = computed(() => {
   if (props.timeOffDurationYears === null || props.timeOffDurationYears <= 0) return 0;
-  return props.timeOffDurationYears * weeksPerYear;
+  return props.timeOffDurationYears * itemsPerYear.value;
 });
 
-const timeOffEndWeek = computed(() => {
-  if (timeOffStartWeek.value === -1 || timeOffDurationWeeks.value === 0) return -1;
-  const endWeek = timeOffStartWeek.value + timeOffDurationWeeks.value - 1;
-  return Math.min(endWeek, totalWeeks);
+const timeOffEndItem = computed(() => {
+  // Becomes exclusive end index for easier looping and consistency
+  if (timeOffStartItem.value === -1 || timeOffDurationItems.value === 0) return -1;
+   // Use 0-based indexing consistently: startItem + durationItems
+  const endItem = timeOffStartItem.value + timeOffDurationItems.value;
+  return Math.min(endItem, totalItems.value); // Cap at total items
 });
 
-const runwayDurationWeeks = computed(() => {
+
+const runwayDurationItems = computed(() => {
     if (props.runwayYears === null || props.runwayYears <= 0) return 0;
-    return props.runwayYears * weeksPerYear;
+    return props.runwayYears * itemsPerYear.value;
 });
 
-// --- State Calculation for Each Week ---
+// --- State Calculation for Each Item ---
 
-const weekStates = computed(() => {
-  const states: string[] = new Array(totalWeeks + 1).fill(STATE_FUTURE);
+const itemStates = computed(() => {
+  const states: string[] = new Array(totalItems.value).fill(STATE_FUTURE); // Use 0-based index
 
   // --- Preliminary Calculations for Retirement Adjustment ---
-  const elapWeeks = elapsedWeeks.value;
-  const toStartWeek = timeOffStartWeek.value;
-  const toEndWeek = timeOffEndWeek.value;
-  const toDurationWeeksVal = timeOffDurationWeeks.value;
-  const runDurationWeeksVal = runwayDurationWeeks.value;
+  const elapItems = elapsedItems.value; // 0-based index of first future item
+  const toStartItem = timeOffStartItem.value; // 0-based index
+  const toEndItem = timeOffEndItem.value; // 0-based exclusive end index
+  const toDurationItemsVal = timeOffDurationItems.value;
+  const runDurationItemsVal = runwayDurationItems.value;
 
-  // 1. Initial retirement boundary based purely on prop
-  const initialRetireStartWeek = props.showRetirement && props.retirementAge > 0 && props.retirementAge <= years
-                                 ? (props.retirementAge * weeksPerYear + 1)
-                                 : (totalWeeks + 2); // Effectively disabled
+  // 1. Initial retirement boundary (0-based index)
+  const initialRetireStartItem = props.showRetirement && props.retirementAge > 0 && props.retirementAge <= years
+                                 ? (props.retirementAge * itemsPerYear.value)
+                                 : totalItems.value; // Effectively disabled if retirement not shown or invalid
 
-  // 2. Calculate the weeks that *would* be runway if no time off existed
-  const potentialRunwayWeeks = new Set<number>();
-  let runwayWeeksCount = 0;
-  if (runDurationWeeksVal > 0) {
-      for (let i = elapWeeks + 1; i < initialRetireStartWeek; i++) {
-          if (runwayWeeksCount >= runDurationWeeksVal) break;
-          if (i <= totalWeeks) {
-              potentialRunwayWeeks.add(i);
-              runwayWeeksCount++;
+  // 2. Calculate potential runway items (using 0-based index)
+  const potentialRunwayItems = new Set<number>();
+  let runwayItemsCount = 0;
+  if (runDurationItemsVal > 0) {
+      // Start from the first non-elapsed item
+      for (let i = elapItems; i < initialRetireStartItem; i++) {
+          if (runwayItemsCount >= runDurationItemsVal) break;
+          if (i < totalItems.value) { // Ensure within bounds
+              potentialRunwayItems.add(i);
+              runwayItemsCount++;
           }
       }
   }
 
-  // 3. Calculate overlap: how many Time Off weeks fall into the potential Runway period
-  let overlapWeeks = 0;
-  if (toStartWeek !== -1 && toDurationWeeksVal > 0) {
-      for (let i = toStartWeek; i <= toEndWeek; i++) {
-          // Ensure the week is actually within grid bounds and after elapsed time
-          if (i > elapWeeks && i <= totalWeeks && potentialRunwayWeeks.has(i)) {
-              overlapWeeks++;
+  // 3. Calculate overlap (0-based indices)
+  let overlapItems = 0;
+  if (toStartItem !== -1 && toDurationItemsVal > 0) {
+       // Iterate from start (inclusive) up to end (exclusive)
+      for (let i = toStartItem; i < toEndItem; i++) {
+          // Check if the item is within grid bounds, *after* elapsed time, and is a potential runway item
+          if (i >= elapItems && i < totalItems.value && potentialRunwayItems.has(i)) {
+              overlapItems++;
           }
       }
   }
 
-  // 4. Calculate shortfall and the effective retirement start week
-  const shortfallWeeks = Math.max(0, toDurationWeeksVal - overlapWeeks);
-  // Only delay if retirement is shown; cap at grid end
-  const effectiveRetirementStartWeek = props.showRetirement
-                                       ? Math.min(initialRetireStartWeek + shortfallWeeks, totalWeeks + 1)
-                                       : (totalWeeks + 2);
 
-  // --- Actual State Painting (Using Effective Retirement Boundary) ---
+  // 4. Calculate shortfall and effective retirement start item (0-based index)
+  const shortfallItems = Math.max(0, toDurationItemsVal - overlapItems);
+  const effectiveRetirementStartItem = props.showRetirement
+                                       ? Math.min(initialRetireStartItem + shortfallItems, totalItems.value)
+                                       : totalItems.value; // Disabled if not shown
 
+  // --- Actual State Painting (Using 0-based index) ---
   // Order: Elapsed -> Retirement -> Runway -> TimeOff
 
   // 1. Mark Elapsed (Highest priority for past)
-  for (let i = 1; i <= elapWeeks; i++) {
-     if (i <= totalWeeks) states[i] = STATE_ELAPSED;
+  // Items from 0 up to (but not including) elapItems are elapsed
+  for (let i = 0; i < elapItems; i++) {
+     if (i < totalItems.value) states[i] = STATE_ELAPSED;
   }
 
-  // 2. Mark Retirement (using *effective* start week)
+  // 2. Mark Retirement (using *effective* start item, 0-based)
   if (props.showRetirement) {
-      for (let i = effectiveRetirementStartWeek; i <= totalWeeks; i++) {
+      // Start from the effective retirement item up to the end
+      for (let i = effectiveRetirementStartItem; i < totalItems.value; i++) {
         // Only overwrite future state
         if (states[i] === STATE_FUTURE) states[i] = STATE_RETIREMENT;
       }
   }
 
+
   // 3. Mark Runway (fills gap between elapsed and *effective* retirement, up to duration)
-  let runwayWeeksPainted = 0;
-  if (runDurationWeeksVal > 0) {
-      // Iterate only up to the potentially delayed retirement start
-      for (let i = elapWeeks + 1; i < effectiveRetirementStartWeek; i++) {
-          if (runwayWeeksPainted >= runDurationWeeksVal) break;
-          // Only paint if it's currently Future (respects effective retirement boundary)
-          if (i <= totalWeeks && states[i] === STATE_FUTURE) {
+  let runwayItemsPainted = 0;
+  if (runDurationItemsVal > 0) {
+      // Iterate from the first non-elapsed item up to the effective retirement start
+      for (let i = elapItems; i < effectiveRetirementStartItem; i++) {
+          if (runwayItemsPainted >= runDurationItemsVal) break;
+          // Only paint if it's currently Future
+          if (i < totalItems.value && states[i] === STATE_FUTURE) {
               states[i] = STATE_RUNWAY;
-              runwayWeeksPainted++;
+              runwayItemsPainted++;
           }
       }
   }
 
+
   // 4. Mark Time Off (Overwrite Future OR Runway in its specific period)
-  if (toStartWeek !== -1) {
-    for (let i = toStartWeek; i <= toEndWeek; i++) {
+  if (toStartItem !== -1) {
+    // Iterate from start (inclusive) up to end (exclusive)
+    for (let i = toStartItem; i < toEndItem; i++) {
       // Allow time off to overwrite future/runway, but not retirement or elapsed
-      if (i > 0 && i <= totalWeeks && states[i] !== STATE_ELAPSED && states[i] !== STATE_RETIREMENT) {
+      if (i >= 0 && i < totalItems.value && states[i] !== STATE_ELAPSED && states[i] !== STATE_RETIREMENT) {
           states[i] = STATE_TIME_OFF;
       }
     }
   }
 
-  return states;
+
+  return states; // Array of states for indices 0 to totalItems-1
 });
 
 // --- Styling Function ---
 
-const getWeekClass = (weekIndex: number): string => {
-  const state = weekStates.value[weekIndex] || STATE_FUTURE;
+const getItemClass = (itemIndex: number): string => {
+  // Adjust index for 0-based array access
+  const state = itemStates.value[itemIndex - 1] || STATE_FUTURE;
   switch (state) {
     case STATE_ELAPSED:
       return 'bg-blue-800';
     case STATE_TIME_OFF:
-      return 'bg-green-400';
+      return 'bg-green-400'; // Keep retirement and time off same color for now
     case STATE_RUNWAY:
       return 'bg-blue-400';
     case STATE_RETIREMENT:
-      return 'bg-green-400';
+      return 'bg-green-400'; // Keep retirement and time off same color for now
     case STATE_FUTURE:
     default:
       return 'bg-white';
   }
 };
 
-// --- Axis Markers --- (Only Week markers needed now)
-const weekMarkers = computed(() => {
-  return [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
+// --- Tooltip Function ---
+const getItemTitle = (itemIndex: number): string => {
+  const year = Math.floor((itemIndex - 1) / itemsPerYear.value);
+  const itemNumberInYear = ((itemIndex - 1) % itemsPerYear.value) + 1;
+  return `Year ${year}, ${timeUnitName.value} ${itemNumberInYear}`;
+};
+
+
+// --- Axis Markers ---
+const xAxisMarkers = computed(() => {
+  if (props.displayMode === 'weeks') {
+    // Show markers for weeks 1, 5, 10, etc.
+    return [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
+  } else { // months
+    // Show markers for months 1, 3, 6, 9, 12
+    return [1, 3, 6, 9, 12];
+  }
 });
 
 </script>
 
 <style scoped>
-.grid {
-  grid-template-columns: repeat(52, minmax(0, 1fr));
-}
-
+/* Keep grid-cols-* definition in JS via :class binding */
 .grid > div {
   transition: background-color 0.1s ease-in-out;
 }
