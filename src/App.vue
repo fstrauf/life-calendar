@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import LifeGrid from './components/LifeGrid.vue';
 import DateInput from './components/DateInput.vue';
+import PrivacyPolicy from './views/PrivacyPolicy.vue';
 import type { DisplayMode } from './types';
 
 const dateOfBirth = ref<Date | null>(null);
@@ -11,6 +12,8 @@ const runwayYears = ref<number | null>(null);
 const timeOffStartAge = ref<number | null>(null);
 const timeOffDurationYears = ref<number | null>(null);
 
+const currentView = ref<'main' | 'privacy'>('main');
+
 // --- Screen Size Detection ---
 const isMobile = ref(false);
 let mediaQueryList: MediaQueryList | null = null;
@@ -18,7 +21,6 @@ let mediaQueryList: MediaQueryList | null = null;
 const checkScreenSize = () => {
   if (mediaQueryList) {
     isMobile.value = mediaQueryList.matches;
-    console.log('Screen size check, isMobile:', isMobile.value);
   }
 };
 
@@ -39,60 +41,83 @@ const displayMode = computed<DisplayMode>(() => {
 // --- End Screen Size Detection ---
 
 const handleDateUpdate = (newDate: Date) => {
-  console.log('App.vue: Date updated', newDate);
   dateOfBirth.value = newDate;
+};
+
+const showPrivacyPolicy = () => {
+  currentView.value = 'privacy';
+};
+
+const showMainView = () => {
+  currentView.value = 'main';
 };
 </script>
 
 <template>
   <div id="app" class="flex flex-col items-center p-6 sm:p-10 min-h-screen bg-gray-50">
-    <h1 class="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">Your Life in {{ displayMode === 'weeks' ? 'Weeks' : 'Months' }}</h1>
-    <div class="flex flex-col items-center w-full mb-6 space-y-4">
-      <DateInput @update:date="handleDateUpdate" />
-      <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
-        <div>
-          <input type="checkbox" id="showRetirement" v-model="showRetirement" class="mr-1" />
-          <label for="showRetirement" class="text-sm text-gray-700">Show Retirement</label>
+    <!-- Main Content Area -->
+    <div v-if="currentView === 'main'" class="flex flex-col items-center w-full">
+      <h1 class="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">Your Life in {{ displayMode === 'weeks' ? 'Weeks' : 'Months' }}</h1>
+      <div class="flex flex-col items-center w-full mb-6 space-y-4">
+        <DateInput @update:date="handleDateUpdate" />
+        <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
+          <div>
+            <input type="checkbox" id="showRetirement" v-model="showRetirement" class="mr-1" />
+            <label for="showRetirement" class="text-sm text-gray-700">Show Retirement</label>
+          </div>
+          <div>
+            <label for="runwayYears" class="text-sm text-gray-700 mr-1">Runway (Years):</label>
+            <input type="number" id="runwayYears" v-model.number="runwayYears" min="0" class="p-1 border rounded w-16 text-sm"/>
+          </div>
+           <div>
+            <label for="timeOffStart" class="text-sm text-gray-700 mr-1">Time Off Start Age:</label>
+            <input type="number" id="timeOffStart" v-model.number="timeOffStartAge" min="0" :max="90 - (timeOffDurationYears || 0)" class="p-1 border rounded w-16 text-sm"/>
+          </div>
+           <div>
+            <label for="timeOffDuration" class="text-sm text-gray-700 mr-1">Time Off Duration (Years):</label>
+            <input type="number" id="timeOffDuration" v-model.number="timeOffDurationYears" min="0" :max="90 - (timeOffStartAge || 0)" class="p-1 border rounded w-16 text-sm"/>
+          </div>
         </div>
-        <div>
-          <label for="runwayYears" class="text-sm text-gray-700 mr-1">Runway (Years):</label>
-          <input type="number" id="runwayYears" v-model.number="runwayYears" min="0" class="p-1 border rounded w-16 text-sm"/>
-        </div>
-         <div>
-          <label for="timeOffStart" class="text-sm text-gray-700 mr-1">Time Off Start Age:</label>
-          <input type="number" id="timeOffStart" v-model.number="timeOffStartAge" min="0" :max="90 - (timeOffDurationYears || 0)" class="p-1 border rounded w-16 text-sm"/>
-        </div>
-         <div>
-          <label for="timeOffDuration" class="text-sm text-gray-700 mr-1">Time Off Duration (Years):</label>
-          <input type="number" id="timeOffDuration" v-model.number="timeOffDurationYears" min="0" :max="90 - (timeOffStartAge || 0)" class="p-1 border rounded w-16 text-sm"/>
-        </div>
+      </div>
+
+      <div class="w-full max-w-screen-lg mx-auto">
+        <LifeGrid
+          :date-of-birth="dateOfBirth"
+          :show-retirement="showRetirement"
+          :retirement-age="retirementAge"
+          :runway-years="runwayYears"
+          :time-off-start-age="timeOffStartAge"
+          :time-off-duration-years="timeOffDurationYears"
+          :display-mode="displayMode"
+        />
+      </div>
+
+      <!-- Legend -->
+      <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-6 text-xs text-gray-700">
+        <div class="flex items-center"><span class="w-3 h-3 bg-blue-800 inline-block mr-1 rounded-sm border border-gray-400"></span> Elapsed</div>
+        <div class="flex items-center"><span class="w-3 h-3 bg-green-400 inline-block mr-1 rounded-sm border border-gray-400"></span> Time Off / Retirement</div>
+        <div class="flex items-center"><span class="w-3 h-3 bg-blue-400 inline-block mr-1 rounded-sm border border-gray-400"></span>Runway</div>
+        <div class="flex items-center"><span class="w-3 h-3 bg-white inline-block mr-1 rounded-sm border border-gray-400"></span> Future</div>
       </div>
     </div>
 
-    <div class="w-full max-w-screen-lg mx-auto">
-      <LifeGrid
-        :date-of-birth="dateOfBirth"
-        :show-retirement="showRetirement"
-        :retirement-age="retirementAge"
-        :runway-years="runwayYears"
-        :time-off-start-age="timeOffStartAge"
-        :time-off-duration-years="timeOffDurationYears"
-        :display-mode="displayMode"
-      />
+    <!-- Privacy Policy View -->
+    <div v-else-if="currentView === 'privacy'" class="w-full">
+       <button @click="showMainView" class="mb-4 text-blue-600 hover:underline">&larr; Back to Calendar</button>
+      <PrivacyPolicy />
     </div>
 
-    <!-- Legend -->
-    <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-6 text-xs text-gray-700">
-      <div class="flex items-center"><span class="w-3 h-3 bg-blue-800 inline-block mr-1 rounded-sm border border-gray-400"></span> Elapsed</div>
-      <div class="flex items-center"><span class="w-3 h-3 bg-green-400 inline-block mr-1 rounded-sm border border-gray-400"></span> Time Off / Retirement</div>
-      <div class="flex items-center"><span class="w-3 h-3 bg-blue-400 inline-block mr-1 rounded-sm border border-gray-400"></span>Runway</div>
-      <div class="flex items-center"><span class="w-3 h-3 bg-white inline-block mr-1 rounded-sm border border-gray-400"></span> Future</div>
-    </div>
-
-    <!-- Credits -->
-    <div class="mt-4 text-center text-xs text-gray-500">
-      <p>Based on the <a href="http://waitbutwhy.com/2014/05/life-weeks.html" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Your Life in Weeks</a> post by Tim Urban, from <a href="http://waitbutwhy.com/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Wait But Why</a>.</p>
-    </div>
+    <!-- Footer Area (always visible) -->
+    <footer class="mt-auto pt-6 text-center text-xs text-gray-500 w-full">
+        <!-- Credits -->
+        <div class="mb-2">
+          <p>Based on the <a href="http://waitbutwhy.com/2014/05/life-weeks.html" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Your Life in Weeks</a> post by Tim Urban, from <a href="http://waitbutwhy.com/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Wait But Why</a>.</p>
+        </div>
+         <!-- Privacy Policy Link -->
+        <div v-if="currentView === 'main'">
+           <button @click="showPrivacyPolicy" class="text-blue-600 hover:underline">Privacy Policy</button>
+        </div>
+    </footer>
   </div>
 </template>
 
